@@ -147,15 +147,18 @@ st.dataframe(score_df.style.applymap(highlight), use_container_width=True)
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
 if st.session_state.scores:
+    rounds_data = []
     for i, round_scores in enumerate(st.session_state.scores):
-        st.markdown(f"**Round {i+1}**")
-        round_updated = {}
+        row = []
         for player in st.session_state.players:
+            val = round_scores.get(player, 0)
             key = f"edit_r{i}_{player}"
-            val = st.number_input(f"{player} (Round {i+1})", value=round_scores.get(player, 0), min_value=0, step=1, key=key, disabled=not is_admin)
-            round_updated[player] = val
+            editable_val = st.number_input(f"{player} (R{i+1})", value=val, key=key, min_value=0, step=1, label_visibility="collapsed", disabled=not is_admin)
+            row.append(editable_val)
+        rounds_data.append(row)
         if is_admin and st.button(f"🔄 Update Round {i+1}", key=f"update_{i}"):
-            st.session_state.scores[i] = round_updated
+            for j, player in enumerate(st.session_state.players):
+                st.session_state.scores[i][player] = rounds_data[i][j]
             save_game()
             st.success(f"✅ Round {i+1} updated!")
             st.rerun()
