@@ -50,7 +50,7 @@ if not st.session_state.authenticated:
 
 is_admin = st.session_state.authenticated
 
-# ----------------- Load from Disk -----------------
+# ----------------- Load Game -----------------
 def load_game():
     if os.path.exists(SAVE_FILE):
         with open(SAVE_FILE, "r") as f:
@@ -60,7 +60,7 @@ def load_game():
         st.session_state.player_setup_done = True
         st.session_state.reset_inputs = True
 
-# ----------------- Save to Disk -----------------
+# ----------------- Save Game -----------------
 def save_game():
     with open(SAVE_FILE, "w") as f:
         json.dump({
@@ -68,7 +68,7 @@ def save_game():
             "scores": st.session_state.scores
         }, f)
 
-# ----------------- Safe Reset -----------------
+# ----------------- Reset -----------------
 if 'game_reset' in st.session_state and st.session_state.game_reset:
     if os.path.exists(SAVE_FILE):
         os.remove(SAVE_FILE)
@@ -86,15 +86,14 @@ if not st.session_state.player_setup_done:
         st.subheader("👥 Setup Players")
         with st.form("player_setup_form"):
             num_players = st.number_input("Number of Players", min_value=2, max_value=15, value=4, key="num_players")
-            player_names = [st.text_input(f"Player {i+1} Name", key=f"player_{i}") for i in range(int(st.session_state.num_players))]
+            player_names = [st.text_input(f"Player {i+1} Name", key=f"player_{i}") for i in range(int(num_players))]
             submitted = st.form_submit_button("✅ Start Game")
-
         if submitted:
             if all(name.strip() for name in player_names):
                 st.session_state.players = player_names
                 st.session_state.scores = []
-                st.session_state.reset_inputs = True
                 st.session_state.player_setup_done = True
+                st.session_state.reset_inputs = True
                 save_game()
                 st.rerun()
             else:
@@ -103,12 +102,12 @@ if not st.session_state.player_setup_done:
         st.info("Waiting for admin to start the game.")
     st.stop()
 
-# ----------------- Score Totals -----------------
+# ----------------- Get Totals -----------------
 def get_total_scores():
     totals = {p: 0 for p in st.session_state.players}
-    for round_scores in st.session_state.scores:
-        for p, score in round_scores.items():
-            totals[p] += score
+    for r in st.session_state.scores:
+        for p, val in r.items():
+            totals[p] += val
     return totals
 
 # ----------------- 1. TOTAL SCORES -----------------
@@ -130,8 +129,7 @@ for player, score in totals.items():
         label += " 🥈"
     labelled[player] = label
 
-score_df = pd.DataFrame([[totals[p] for p in totals]], columns=[labelled[p] for p in totals])
-
+score_df = pd.DataFrame([[totals[p] for p in st.session_state.players]], columns=[labelled[p] for p in st.session_state.players])
 def highlight(val):
     if val == min_score:
         return 'background-color: lightgreen; font-weight: bold'
@@ -140,37 +138,37 @@ def highlight(val):
     elif val == max_score:
         return 'background-color: red; color: white; font-weight: bold'
     return ''
-
 st.dataframe(score_df.style.applymap(highlight), use_container_width=True)
 
-# ----------------- 2. PREVIOUS ROUNDS -----------------
+# ----------------- 2. PREVIOUS ROUNDS (HORIZONTAL FORMAT) -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
+
 if st.session_state.scores:
-    rounds_data = {"Round": [f"Round {i+1}" for i in range(len(st.session_state.scores))]}
-    for player in st.session_state.players:
-        rounds_data[player] = [st.session_state.scores[i].get(player, 0) for i in range(len(st.session_state.scores))]
+    round_df = pd.DataFrame(st.session_state.scores)
+    round_df.index = [f"Round {i+1}" for i in range(len(round_df))]
 
-    df = pd.DataFrame(rounds_data)
-    st.dataframe(df, use_container_width=True, height=250)
-
-    for i in range(len(st.session_state.scores)):
-        with st.form(f"edit_round_form_{i}"):
-            st.write(f"Edit Round {i+1}")
-            cols = st.columns(len(st.session_state.players))
-            updated = {}
-            for idx, player in enumerate(st.session_state.players):
-                updated[player] = cols[idx].number_input(f"{player}_r{i}", min_value=0, value=st.session_state.scores[i].get(player, 0), label_visibility="collapsed", key=f"edit_{i}_{player}")
-            submitted = st.form_submit_button(f"🔄 Update Round {i+1}")
-            if submitted:
-                st.session_state.scores[i] = updated
-                save_game()
-                st.success(f"✅ Round {i+1} updated!")
-                st.rerun()
+    scroll_container = st.container()
+    with scroll_container:
+        for i, round_scores in enumerate(st.session_state.scores):
+            st.markdown(f"**Round {i+1}**")
+            cols = st.columns(len(st.session_state.players) + 1)
+            round_data = {}
+            for j, player in enumerate(st.session_state.players):
+                key = f"edit_r{i}_{player}"
+                val = round_scores.get(player, 0)
+                round_data[player] = cols[j].number_input(f"{player}", min_value=0, step=1, value=val, key=key, label_visibility="collapsed", disabled=not is_admin)
+            if is_admin:
+                if cols[-1].button(f"🔄 Update", key=f"update_{i}"):
+                    st.session_state.scores[i] = round_data
+                    save_game()
+                    st.success(f"✅ Round {i+1} updated!")
+                    st.rerun()
 
 # ----------------- 3. ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
 st.subheader("✍️ Enter New Round Scores")
+
 if 'reset_inputs' not in st.session_state:
     st.session_state.reset_inputs = False
 
@@ -178,12 +176,10 @@ if is_admin:
     new_scores = {}
     with st.form("new_round_form"):
         for player in st.session_state.players:
-            value = 0 if st.session_state.reset_inputs else st.session_state.get(f"new_round_{player}", 0)
-            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, value=value, key=f"new_round_{player}")
+            default_val = 0 if st.session_state.reset_inputs else st.session_state.get(f"new_round_{player}", 0)
+            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, value=default_val, key=f"new_round_{player}")
         if st.form_submit_button("📅 Save This Round"):
             st.session_state.scores.append(new_scores.copy())
-            for player in st.session_state.players:
-                st.session_state[f"new_round_{player}"] = 0
             st.session_state.reset_inputs = True
             save_game()
             st.rerun()
@@ -199,9 +195,9 @@ if is_admin:
     remove_player = st.selectbox("❌ Remove Player", options=st.session_state.players)
     if st.button("❌ Confirm Remove"):
         st.session_state.players.remove(remove_player)
-        for i in range(len(st.session_state.scores)):
-            if remove_player in st.session_state.scores[i]:
-                del st.session_state.scores[i][remove_player]
+        for r in st.session_state.scores:
+            if remove_player in r:
+                del r[remove_player]
         save_game()
         st.success(f"Removed player: {remove_player}")
         st.rerun()
@@ -211,15 +207,13 @@ if is_admin:
         if st.button("✅ Confirm Add"):
             if new_player and new_player not in st.session_state.players:
                 st.session_state.players.append(new_player)
-                for round_score in st.session_state.scores:
-                    round_score[new_player] = 0
+                for r in st.session_state.scores:
+                    r[new_player] = 0
                 save_game()
-                st.success(f"Added new player: {new_player}")
+                st.success(f"Added player: {new_player}")
                 st.rerun()
     else:
         st.warning("Maximum 15 players reached.")
-else:
-    st.info("Only admin can modify players.")
 
 # ----------------- 5. END GAME -----------------
 st.markdown("---")
