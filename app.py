@@ -164,24 +164,23 @@ if st.session_state.scores:
 # ----------------- 3. ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
 st.subheader("✍️ Enter New Round Scores")
-if 'reset_inputs' not in st.session_state:
-    st.session_state.reset_inputs = False
+
+if "new_round_key_suffix" not in st.session_state:
+    st.session_state.new_round_key_suffix = 0
 
 if is_admin:
     new_scores = {}
     with st.form("new_round_form"):
         for player in st.session_state.players:
-            value = 0 if st.session_state.reset_inputs else st.session_state.get(f"new_round_{player}", 0)
-            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, value=value, key=f"new_round_{player}")
+            widget_key = f"new_round_{player}_{st.session_state.new_round_key_suffix}"
+            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, value=0, key=widget_key)
         if st.form_submit_button("📅 Save This Round"):
             st.session_state.scores.append(new_scores.copy())
-            st.session_state.reset_inputs = True
+            st.session_state.new_round_key_suffix += 1  # Force new widget key next time to reset input
             save_game()
             st.rerun()
 else:
     st.info("Only admin can enter scores.")
-
-st.session_state.reset_inputs = False
 
 # ----------------- 4. ADD / REMOVE PLAYER -----------------
 st.markdown("---")
