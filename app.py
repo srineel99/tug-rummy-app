@@ -130,7 +130,7 @@ for player, score in totals.items():
         label += " 🥈"
     labelled[player] = label
 
-score_df = pd.DataFrame([[totals[p] for p in totals]], columns=[labelled[p] for p in totals])
+score_df = pd.DataFrame([[totals[p] for p in st.session_state.players]], columns=[labelled[p] for p in st.session_state.players])
 
 def highlight(val):
     if val == min_score:
@@ -143,31 +143,25 @@ def highlight(val):
 
 st.dataframe(score_df.style.applymap(highlight), use_container_width=True)
 
-# ----------------- 2. PREVIOUS ROUNDS -----------------
+# ----------------- 2. PREVIOUS ROUNDS (Editable Table Format) -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
+
 if st.session_state.scores:
-    rounds = len(st.session_state.scores)
-    df_data = {f"Round {i+1}": [st.session_state.scores[i].get(p, 0) for p in st.session_state.players] for i in range(rounds)}
-    df_data = {"Player": st.session_state.players, **df_data}
-
-    edited_scores = pd.DataFrame(df_data)
-
-    st.markdown("#### Edit Scores Table")
-    edited_scores = st.data_editor(edited_scores, disabled=(not is_admin), use_container_width=True, key="round_editor")
-
-    if is_admin:
-        if st.button("🔄 Update All Rounds"):
-            new_scores = []
-            for i in range(rounds):
-                round_scores = {}
-                for p in st.session_state.players:
-                    round_scores[p] = int(edited_scores.loc[edited_scores["Player"] == p, f"Round {i+1}"].values[0])
-                new_scores.append(round_scores)
-            st.session_state.scores = new_scores
-            save_game()
-            st.success("✅ All rounds updated!")
-            st.rerun()
+    for i, round_scores in enumerate(st.session_state.scores):
+        st.markdown(f"**Round {i+1}**")
+        cols = st.columns(len(st.session_state.players) + 1)  # +1 for update button
+        updated_scores = {}
+        for j, player in enumerate(st.session_state.players):
+            key = f"edit_r{i}_{player}"
+            val = round_scores.get(player, 0)
+            updated_scores[player] = cols[j].number_input(" ", value=val, min_value=0, step=1, key=key, label_visibility="collapsed", disabled=not is_admin)
+        if is_admin:
+            if cols[-1].button("🔄 Update", key=f"update_round_{i}"):
+                st.session_state.scores[i] = updated_scores
+                save_game()
+                st.success(f"✅ Round {i+1} updated!")
+                st.rerun()
 
 # ----------------- 3. ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
