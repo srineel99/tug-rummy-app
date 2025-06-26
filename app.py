@@ -147,40 +147,49 @@ st.dataframe(score_df.style.applymap(highlight), use_container_width=True)
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
 if st.session_state.scores:
-    for i, round_scores in enumerate(st.session_state.scores):
-        st.markdown(f"**Round {i+1}**")
-        round_updated = {}
-        cols = st.columns(len(st.session_state.players))
-        for idx, player in enumerate(st.session_state.players):
-            key = f"edit_r{i}_{player}"
-            val = st.number_input(f"{player}", value=round_scores.get(player, 0), min_value=0, step=1, key=key, disabled=not is_admin, label_visibility="collapsed")
-            round_updated[player] = val
-        if is_admin and st.button(f"🔄 Update Round {i+1}", key=f"update_{i}"):
-            st.session_state.scores[i] = round_updated
+    rounds = len(st.session_state.scores)
+    df_data = {f"Round {i+1}": [st.session_state.scores[i].get(p, 0) for p in st.session_state.players] for i in range(rounds)}
+    df_data = {"Player": st.session_state.players, **df_data}
+
+    edited_scores = pd.DataFrame(df_data)
+
+    st.markdown("#### Edit Scores Table")
+    edited_scores = st.data_editor(edited_scores, disabled=(not is_admin), use_container_width=True, key="round_editor")
+
+    if is_admin:
+        if st.button("🔄 Update All Rounds"):
+            new_scores = []
+            for i in range(rounds):
+                round_scores = {}
+                for p in st.session_state.players:
+                    round_scores[p] = int(edited_scores.loc[edited_scores["Player"] == p, f"Round {i+1}"].values[0])
+                new_scores.append(round_scores)
+            st.session_state.scores = new_scores
             save_game()
-            st.success(f"✅ Round {i+1} updated!")
+            st.success("✅ All rounds updated!")
             st.rerun()
 
 # ----------------- 3. ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
 st.subheader("✍️ Enter New Round Scores")
-
-if "new_round_key_suffix" not in st.session_state:
-    st.session_state.new_round_key_suffix = 0
+if 'reset_inputs' not in st.session_state:
+    st.session_state.reset_inputs = False
 
 if is_admin:
     new_scores = {}
     with st.form("new_round_form"):
         for player in st.session_state.players:
-            widget_key = f"new_round_{player}_{st.session_state.new_round_key_suffix}"
-            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, value=0, key=widget_key)
+            value = 0 if st.session_state.reset_inputs else st.session_state.get(f"new_round_{player}", 0)
+            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, value=value, key=f"new_round_{player}")
         if st.form_submit_button("📅 Save This Round"):
             st.session_state.scores.append(new_scores.copy())
-            st.session_state.new_round_key_suffix += 1  # Force new widget key next time to reset input
+            st.session_state.reset_inputs = True
             save_game()
             st.rerun()
 else:
     st.info("Only admin can enter scores.")
+
+st.session_state.reset_inputs = False
 
 # ----------------- 4. ADD / REMOVE PLAYER -----------------
 st.markdown("---")
