@@ -147,15 +147,13 @@ st.dataframe(score_df.style.applymap(highlight), use_container_width=True)
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
 if st.session_state.scores:
-    st.markdown("<div style='overflow-x:auto;'>", unsafe_allow_html=True)
+    round_data = []
     for i, round_scores in enumerate(st.session_state.scores):
-        cols = st.columns([1] * (len(st.session_state.players) + 2))
-        cols[0].markdown(f"**Round {i+1}**")
-        updated_scores = {}
-        for idx, player in enumerate(st.session_state.players):
+        row = {"Round": f"Round {i+1}"}
+        for player in st.session_state.players:
             key = f"edit_r{i}_{player}"
-            updated_scores[player] = cols[idx + 1].number_input(
-                label=player,
+            row[player] = st.number_input(
+                label=f"{player} (R{i+1})",
                 value=round_scores.get(player, 0),
                 min_value=0,
                 step=1,
@@ -163,11 +161,19 @@ if st.session_state.scores:
                 label_visibility="collapsed",
                 disabled=not is_admin
             )
-        if is_admin and cols[-1].button("🔄", key=f"update_{i}"):
-            st.session_state.scores[i] = updated_scores
+        round_data.append(row)
+
+    df = pd.DataFrame(round_data)
+    st.dataframe(df.set_index("Round"), use_container_width=True, hide_index=False)
+
+    for i in range(len(st.session_state.scores)):
+        if is_admin and st.button(f"🔄 Update Round {i+1}", key=f"update_{i}"):
+            for player in st.session_state.players:
+                key = f"edit_r{i}_{player}"
+                st.session_state.scores[i][player] = st.session_state[key]
             save_game()
+            st.success(f"✅ Round {i+1} updated!")
             st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # ----------------- 3. ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
@@ -183,6 +189,8 @@ if is_admin:
             new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, value=value, key=f"new_round_{player}")
         if st.form_submit_button("📅 Save This Round"):
             st.session_state.scores.append(new_scores.copy())
+            for player in st.session_state.players:
+                st.session_state[f"new_round_{player}"] = 0
             st.session_state.reset_inputs = True
             save_game()
             st.rerun()
