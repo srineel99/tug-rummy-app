@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import json
 
-st.set_page_config(page_title="TUG Rummy", layout="wide")
+st.set_page_config(page_title="TUG Rummy", layout="centered")
 st.markdown("<h1 style='color:#aa0000;'>🃏 <b>TUG Rummy Team</b></h1>", unsafe_allow_html=True)
 
 SAVE_FILE = "rummy_game_state.json"
@@ -11,6 +11,7 @@ AUTH_FILE = ".auth_state.json"
 ADMIN_USER = "admin"
 ADMIN_PASS = "password"
 
+# ----------------- Authentication -----------------
 def save_auth():
     with open(AUTH_FILE, "w") as f:
         json.dump({"authenticated": True}, f)
@@ -49,6 +50,7 @@ if not st.session_state.authenticated:
 
 is_admin = st.session_state.authenticated
 
+# ----------------- Load from Disk -----------------
 def load_game():
     if os.path.exists(SAVE_FILE):
         with open(SAVE_FILE, "r") as f:
@@ -58,6 +60,7 @@ def load_game():
         st.session_state.player_setup_done = True
         st.session_state.reset_inputs = True
 
+# ----------------- Save to Disk -----------------
 def save_game():
     with open(SAVE_FILE, "w") as f:
         json.dump({
@@ -65,6 +68,7 @@ def save_game():
             "scores": st.session_state.scores
         }, f)
 
+# ----------------- Safe Reset -----------------
 if 'game_reset' in st.session_state and st.session_state.game_reset:
     if os.path.exists(SAVE_FILE):
         os.remove(SAVE_FILE)
@@ -72,6 +76,7 @@ if 'game_reset' in st.session_state and st.session_state.game_reset:
     st.session_state.clear()
     st.rerun()
 
+# ----------------- Player Setup -----------------
 if 'player_setup_done' not in st.session_state:
     st.session_state.player_setup_done = False
     load_game()
@@ -98,6 +103,7 @@ if not st.session_state.player_setup_done:
         st.info("Waiting for admin to start the game.")
     st.stop()
 
+# ----------------- Score Totals -----------------
 def get_total_scores():
     totals = {p: 0 for p in st.session_state.players}
     for round_scores in st.session_state.scores:
@@ -105,6 +111,7 @@ def get_total_scores():
             totals[p] += score
     return totals
 
+# ----------------- 1. TOTAL SCORES -----------------
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
 sorted_scores = sorted(set(totals.values()))
@@ -136,36 +143,35 @@ def highlight(val):
 
 st.dataframe(score_df.style.applymap(highlight), use_container_width=True)
 
+# ----------------- 2. PREVIOUS ROUNDS -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
-
 if st.session_state.scores:
-    data = {
-        "Round": [f"Round {i+1}" for i in range(len(st.session_state.scores))]
-    }
-    for player in st.session_state.players:
-        data[player] = [st.session_state.scores[i].get(player, 0) for i in range(len(st.session_state.scores))]
+    st.markdown("<div style='overflow-x:auto;'>", unsafe_allow_html=True)
+    for i, round_scores in enumerate(st.session_state.scores):
+        cols = st.columns([1] * (len(st.session_state.players) + 2))
+        cols[0].markdown(f"**Round {i+1}**")
+        updated_scores = {}
+        for idx, player in enumerate(st.session_state.players):
+            key = f"edit_r{i}_{player}"
+            updated_scores[player] = cols[idx + 1].number_input(
+                label=player,
+                value=round_scores.get(player, 0),
+                min_value=0,
+                step=1,
+                key=key,
+                label_visibility="collapsed",
+                disabled=not is_admin
+            )
+        if is_admin and cols[-1].button("🔄", key=f"update_{i}"):
+            st.session_state.scores[i] = updated_scores
+            save_game()
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    df = pd.DataFrame(data)
-
-    with st.container():
-        for i in range(len(df)):
-            cols = st.columns(len(df.columns) + 1)
-            cols[0].markdown(f"**{df.iloc[i, 0]}**")
-            new_vals = {}
-            for j, player in enumerate(st.session_state.players):
-                key = f"round_{i}_player_{player}"
-                val = st.number_input("", min_value=0, value=int(df.iloc[i][player]), key=key, label_visibility="collapsed")
-                new_vals[player] = val
-            if is_admin and cols[-1].button(f"Update Round {i+1}", key=f"update_btn_{i}"):
-                st.session_state.scores[i] = new_vals
-                save_game()
-                st.success(f"✅ Round {i+1} updated!")
-                st.rerun()
-
+# ----------------- 3. ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
 st.subheader("✍️ Enter New Round Scores")
-
 if 'reset_inputs' not in st.session_state:
     st.session_state.reset_inputs = False
 
@@ -185,6 +191,7 @@ else:
 
 st.session_state.reset_inputs = False
 
+# ----------------- 4. ADD / REMOVE PLAYER -----------------
 st.markdown("---")
 st.subheader("⚙️ Add / Remove Player")
 if is_admin:
@@ -213,6 +220,7 @@ if is_admin:
 else:
     st.info("Only admin can modify players.")
 
+# ----------------- 5. END GAME -----------------
 st.markdown("---")
 st.subheader("🎮 End Game")
 if is_admin and st.button("🛑 Game Complete"):
