@@ -20,11 +20,6 @@ st.markdown("""
             padding: 0.5rem;
             margin-bottom: 1rem;
         }
-        .small-button {
-            padding: 0.1rem 0.4rem;
-            font-size: 12px;
-            margin-top: 0.5rem;
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -227,28 +222,31 @@ if is_admin:
             save_game()
             st.success("✅ Scores updated successfully!")
             st.rerun()
-
     else:
         st.info("No rounds yet.")
 
     st.markdown("---")
     st.subheader("✍️ Enter New Round Scores")
 
+    if "reset_inputs" not in st.session_state:
+        st.session_state.reset_inputs = False
+
     with st.form("new_round_form"):
         new_scores = {}
         for idx, player in enumerate(st.session_state.players):
             key = f"new_score_{player}_{idx}"
-            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, key=key)
+            default_val = 0 if st.session_state.reset_inputs else st.session_state.get(key, 0)
+            new_scores[player] = st.number_input(f"{player}", min_value=0, value=default_val, step=1, key=key)
 
         submitted = st.form_submit_button("📅 Save This Round")
         if submitted:
             st.session_state.scores.append(new_scores.copy())
             save_game()
-            # Reset inputs by removing them from session_state
-            for key in list(st.session_state.keys()):
-                if key.startswith("new_score_"):
-                    del st.session_state[key]
-            st.experimental_rerun()
+            st.session_state.reset_inputs = True
+            st.rerun()
+
+    # Clear the flag after reload
+    st.session_state.reset_inputs = False
 
     st.markdown("---")
     st.subheader("⚙️ Add / Remove Player")
