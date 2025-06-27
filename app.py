@@ -162,14 +162,39 @@ for col in score_df.columns:
 
 st.dataframe(styled_df, use_container_width=True)
 
-# ----------------- PREVIOUS ROUNDS (COMPACT TABLE) -----------------
+# ----------------- PREVIOUS ROUNDS (Editable Compact Grid) -----------------
 st.markdown("---")
-st.subheader("📜 Previous Rounds (Table View)")
+st.subheader("📜 Previous Rounds (Editable)")
 
 if st.session_state.scores:
-    df_rounds = pd.DataFrame(st.session_state.scores)
-    df_rounds.index = [f"Round {i+1}" for i in range(len(df_rounds))]
-    st.dataframe(df_rounds.style.format(precision=0), use_container_width=True)
+    if is_admin:
+        with st.form("edit_rounds_form"):
+            edited_scores = []
+            st.markdown("#### 📝 Edit Round Scores")
+            for i, round_score in enumerate(st.session_state.scores):
+                st.markdown(f"**Round {i+1}**")
+                cols = st.columns(len(st.session_state.players))
+                updated = {}
+                for j, player in enumerate(st.session_state.players):
+                    key = f"edit_r{i}_{player}"
+                    updated[player] = cols[j].number_input(
+                        label=player,
+                        value=round_score.get(player, 0),
+                        min_value=0,
+                        step=1,
+                        key=key,
+                        label_visibility="collapsed"
+                    )
+                edited_scores.append(updated)
+            if st.form_submit_button("💾 Update All Rounds"):
+                st.session_state.scores = edited_scores
+                save_game()
+                st.success("All rounds updated!")
+                st.rerun()
+    else:
+        df_rounds = pd.DataFrame(st.session_state.scores)
+        df_rounds.index = [f"Round {i+1}" for i in range(len(df_rounds))]
+        st.dataframe(df_rounds.style.format(precision=0), use_container_width=True)
 else:
     st.info("No rounds yet.")
 
