@@ -118,6 +118,11 @@ if not st.session_state.player_setup_done:
     st.stop()
 
 # ----------------- TOTAL SCORES -----------------
+# ----------------- TOTAL SCORES -----------------
+st.subheader("🏆 Total Scores")
+totals = get_total_scores()
+...
+
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
 
