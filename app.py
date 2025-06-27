@@ -26,27 +26,15 @@ st.markdown("""
 st.markdown("<h1 style='color:#aa0000;'>🃏 <b>TUG Rummy Team</b></h1>", unsafe_allow_html=True)
 
 SAVE_FILE = "rummy_game_state.json"
-AUTH_FILE = ".auth_state.json"
 ADMIN_USER = "admin"
 ADMIN_PASS = "password"
 
-# ----------------- Authentication -----------------
+# ----------------- Session-based Auth -----------------
 def save_auth():
-    with open(AUTH_FILE, "w") as f:
-        json.dump({"authenticated": True}, f)
+    st.session_state["authenticated"] = True
 
 def load_auth():
-    if os.path.exists(AUTH_FILE):
-        try:
-            with open(AUTH_FILE, "r") as f:
-                return json.load(f).get("authenticated", False)
-        except:
-            return False
-    return False
-
-def clear_auth():
-    if os.path.exists(AUTH_FILE):
-        os.remove(AUTH_FILE)
+    return st.session_state.get("authenticated", False)
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = load_auth()
@@ -59,14 +47,14 @@ if not st.session_state.authenticated:
         login = st.form_submit_button("🔓 Login")
     if login:
         if username == ADMIN_USER and password == ADMIN_PASS:
-            st.session_state.authenticated = True
             save_auth()
             st.success("✅ Login successful!")
             st.rerun()
         else:
             st.error("❌ Invalid credentials")
+    st.stop()
 
-is_admin = st.session_state.get("authenticated", False)
+is_admin = st.session_state.authenticated
 
 # ----------------- Load & Save -----------------
 def load_game():
@@ -88,7 +76,6 @@ def save_game():
 if 'game_reset' in st.session_state and st.session_state.game_reset:
     if os.path.exists(SAVE_FILE):
         os.remove(SAVE_FILE)
-    clear_auth()
     st.session_state.clear()
     st.rerun()
 
@@ -96,41 +83,41 @@ if 'player_setup_done' not in st.session_state:
     st.session_state.player_setup_done = False
     load_game()
 
-# ----------------- Setup Players -----------------
-if not st.session_state.player_setup_done and is_admin:
-    st.subheader("👥 Setup Players")
-    if 'player_names' not in st.session_state:
-        st.session_state.player_names = ["", "", "", ""]
+# ----------------- Player Setup -----------------
+if not st.session_state.player_setup_done:
+    if is_admin:
+        st.subheader("👥 Setup Players")
+        if 'player_names' not in st.session_state:
+            st.session_state.player_names = ["", "", "", ""]
 
-    with st.form("player_setup_form"):
-        for i, name in enumerate(st.session_state.player_names):
-            st.session_state.player_names[i] = st.text_input(f"Player {i+1} Name", value=name, key=f"player_{i}")
+        with st.form("player_setup_form"):
+            for i, name in enumerate(st.session_state.player_names):
+                st.session_state.player_names[i] = st.text_input(f"Player {i+1} Name", value=name, key=f"player_{i}")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if len(st.session_state.player_names) < 15:
-                if st.form_submit_button("➕ Add Player"):
-                    st.session_state.player_names.append("")
-                    st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if len(st.session_state.player_names) < 15:
+                    if st.form_submit_button("➕ Add Player"):
+                        st.session_state.player_names.append("")
+                        st.rerun()
 
-        with col2:
-            if st.form_submit_button("✅ Start Game"):
-                cleaned = [name.strip() for name in st.session_state.player_names if name.strip()]
-                if len(cleaned) >= 2:
-                    st.session_state.players = cleaned
-                    st.session_state.scores = []
-                    st.session_state.reset_inputs = True
-                    st.session_state.player_setup_done = True
-                    save_game()
-                    st.rerun()
-                else:
-                    st.warning("Please enter at least 2 player names.")
+            with col2:
+                if st.form_submit_button("✅ Start Game"):
+                    cleaned = [name.strip() for name in st.session_state.player_names if name.strip()]
+                    if len(cleaned) >= 2:
+                        st.session_state.players = cleaned
+                        st.session_state.scores = []
+                        st.session_state.reset_inputs = True
+                        st.session_state.player_setup_done = True
+                        save_game()
+                        st.rerun()
+                    else:
+                        st.warning("Please enter at least 2 player names.")
+    else:
+        st.info("Waiting for admin to start the game.")
     st.stop()
-elif not st.session_state.player_setup_done:
-    st.info("Waiting for admin to start the game.")
-    st.stop()
 
-# ----------------- TOTAL SCORES HELPER -----------------
+# ----------------- Total Score Helper -----------------
 def get_total_scores():
     totals = {p: 0 for p in st.session_state.players}
     for round_scores in st.session_state.scores:
@@ -138,7 +125,7 @@ def get_total_scores():
             totals[p] += score
     return totals
 
-# ----------------- TOTAL SCORES -----------------
+# ----------------- Total Score Display -----------------
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
 
@@ -155,16 +142,10 @@ for name in st.session_state.players:
     label = name
     if score == min_score:
         label += " 🏆TUG"
-    elif score == max_score:
-        label += ""
-    elif score == second_high:
-        label += ""
-
     count = name_counts.get(label, 0)
     if count:
         label = f"{label} ({count+1})"
     name_counts[label] = count + 1
-
     label_map[name] = label
     unique_labels.append(label)
 
@@ -182,103 +163,97 @@ def highlight(val):
 try:
     styled_df = score_df.style.applymap(highlight)
     st.dataframe(styled_df, use_container_width=True)
-except Exception as e:
-    st.error("⚠️ Could not apply styling. Showing plain scores.")
+except:
     st.dataframe(score_df, use_container_width=True)
 
-# ----------------- ADMIN-ONLY FEATURES BELOW -----------------
-if not is_admin:
-    st.markdown("🔒 You are in read-only mode. Login as admin to manage the game.")
-    st.stop()
+# ----------------- Admin-Only Sections -----------------
+if is_admin:
 
-# ----------------- PREVIOUS ROUNDS TABLE -----------------
-st.markdown("---")
-st.subheader("📜 Previous Rounds (Editable Table)")
+    # Editable Previous Rounds
+    st.markdown("---")
+    st.subheader("📜 Previous Rounds (Editable Table)")
+    if st.session_state.scores:
+        df_rounds = pd.DataFrame(st.session_state.scores)
+        df_rounds.index = [f"{i+1}" for i in range(len(df_rounds))]
+        df_rounds.insert(0, "Round No", df_rounds.index)
 
-if st.session_state.scores:
-    df_rounds = pd.DataFrame(st.session_state.scores)
-    df_rounds.index = [f"{i+1}" for i in range(len(df_rounds))]
-    df_rounds.insert(0, "Round No", df_rounds.index)
+        st.markdown("Edit scores below and press **Update Table** to save:")
+        edited_df = st.data_editor(df_rounds, use_container_width=True, hide_index=True, num_rows="fixed")
 
-    st.markdown("Edit scores below and press **Update Table** to save:")
-
-    edited_df = st.data_editor(df_rounds, use_container_width=True, hide_index=True, num_rows="fixed")
-
-    if st.button("✅ Update Table"):
-        try:
-            updated_scores = []
-            for _, row in edited_df.iterrows():
-                row_data = {}
-                for player in st.session_state.players:
-                    value = row.get(player)
-                    try:
+        if st.button("✅ Update Table"):
+            try:
+                updated_scores = []
+                for _, row in edited_df.iterrows():
+                    row_data = {}
+                    for player in st.session_state.players:
+                        value = row.get(player)
                         row_data[player] = int(float(value))
-                    except:
-                        raise ValueError(f"Invalid score for {player}: {value}")
-                updated_scores.append(row_data)
-            st.session_state.scores = updated_scores
+                    updated_scores.append(row_data)
+                st.session_state.scores = updated_scores
+                save_game()
+                st.success("✅ Scores updated successfully!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Please enter valid numbers only.\n\nError: {e}")
+    else:
+        st.info("No rounds yet.")
+
+    # New Round Form
+    st.markdown("---")
+    st.subheader("✍️ Enter New Round Scores")
+    if 'reset_inputs' not in st.session_state:
+        st.session_state.reset_inputs = False
+
+    with st.form("new_round_form"):
+        new_scores = {}
+        key_counts = {}
+        for player in st.session_state.players:
+            count = key_counts.get(player, 0)
+            safe_key = f"new_round_{player}_{count}"
+            key_counts[player] = count + 1
+            default = 0 if st.session_state.reset_inputs else st.session_state.get(safe_key, 0)
+            new_scores[player] = st.number_input(f"{player}", min_value=0, value=default, step=1, key=safe_key)
+
+        if st.form_submit_button("📅 Save This Round"):
+            st.session_state.scores.append(new_scores.copy())
+            st.session_state.reset_inputs = True
             save_game()
-            st.success("✅ Scores updated successfully!")
             st.rerun()
-        except Exception as e:
-            st.error(f"❌ Please enter valid numbers only.\n\nError: {e}")
-else:
-    st.info("No rounds yet.")
 
-# ----------------- ENTER NEW ROUND SCORES -----------------
-st.markdown("---")
-st.subheader("✍️ Enter New Round Scores")
-
-if 'reset_inputs' not in st.session_state:
     st.session_state.reset_inputs = False
 
-with st.form("new_round_form"):
-    new_scores = {}
-    key_counts = {}
-    for player in st.session_state.players:
-        count = key_counts.get(player, 0)
-        safe_key = f"new_round_{player}_{count}"
-        key_counts[player] = count + 1
+    # Add/Remove Player
+    st.markdown("---")
+    st.subheader("⚙️ Add / Remove Player")
 
-        default = 0 if st.session_state.reset_inputs else st.session_state.get(safe_key, 0)
-        new_scores[player] = st.number_input(f"{player}", min_value=0, value=default, step=1, key=safe_key)
-
-    if st.form_submit_button("📅 Save This Round"):
-        st.session_state.scores.append(new_scores.copy())
-        st.session_state.reset_inputs = True
-        save_game()
-        st.rerun()
-
-st.session_state.reset_inputs = False
-
-# ----------------- ADD / REMOVE PLAYER -----------------
-st.markdown("---")
-st.subheader("⚙️ Add / Remove Player")
-
-remove_player = st.selectbox("❌ Remove Player", options=st.session_state.players)
-if st.button("❌ Confirm Remove"):
-    st.session_state.players.remove(remove_player)
-    for round_score in st.session_state.scores:
-        round_score.pop(remove_player, None)
-    save_game()
-    st.success(f"Removed player: {remove_player}")
-    st.rerun()
-
-if len(st.session_state.players) < 15:
-    new_player = st.text_input("➕ Add Player (max 15)")
-    if st.button("✅ Confirm Add") and new_player and new_player not in st.session_state.players:
-        st.session_state.players.append(new_player)
+    remove_player = st.selectbox("❌ Remove Player", options=st.session_state.players)
+    if st.button("❌ Confirm Remove"):
+        st.session_state.players.remove(remove_player)
         for round_score in st.session_state.scores:
-            round_score[new_player] = 0
+            round_score.pop(remove_player, None)
         save_game()
-        st.success(f"Added player: {new_player}")
+        st.success(f"Removed player: {remove_player}")
         st.rerun()
-else:
-    st.warning("Maximum 15 players reached.")
 
-# ----------------- END GAME -----------------
-st.markdown("---")
-st.subheader("🎮 End Game")
-if st.button("🛑 Game Complete"):
-    st.session_state.game_reset = True
-    st.rerun()
+    if len(st.session_state.players) < 15:
+        new_player = st.text_input("➕ Add Player (max 15)")
+        if st.button("✅ Confirm Add") and new_player and new_player not in st.session_state.players:
+            st.session_state.players.append(new_player)
+            for round_score in st.session_state.scores:
+                round_score[new_player] = 0
+            save_game()
+            st.success(f"Added player: {new_player}")
+            st.rerun()
+    else:
+        st.warning("Maximum 15 players reached.")
+
+    # End Game
+    st.markdown("---")
+    st.subheader("🎮 End Game")
+    if st.button("🛑 Game Complete"):
+        st.session_state.game_reset = True
+        st.rerun()
+
+else:
+    # Guest notice
+    st.info("🔒 You are in view-only mode. Please login as admin to manage the game.")
