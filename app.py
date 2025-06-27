@@ -143,11 +143,11 @@ for name in st.session_state.players:
     score = totals[name]
     label = name
     if score == min_score:
-        label += " 🏆 TUG"
+        label += " 🏆TUG"
     elif score == max_score:
-        label += " 🥇"
+        label += ""
     elif score == second_high:
-        label += " 🥈"
+        label += ""
 
     count = name_counts.get(label, 0)
     if count:
