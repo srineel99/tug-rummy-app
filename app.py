@@ -3,39 +3,22 @@ import pandas as pd
 import os
 import json
 
-# ----------------- CONFIG + CSS -----------------
 st.set_page_config(page_title="TUG Rummy", layout="centered")
+
+# Compact styling
 st.markdown("""
     <style>
-        .stNumberInput, .stTextInput, .stSelectbox, .stButton {
-            padding: 2px !important;
-            margin: 2px !important;
-        }
-        div[data-testid="column"] {
-            padding: 0px 2px !important;
-        }
-        section.main > div {
-            padding-top: 0.5rem;
-        }
-        h1, h2, h3, h4, h5 {
-            margin: 0.5rem 0 !important;
-        }
-        .stForm {
-            padding: 0.25rem 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            margin-bottom: 6px;
-        }
-        input {
-            font-size: 12px !important;
-            height: 28px !important;
-            padding: 2px !important;
-            text-align: center;
+        .stDataFrame div {
+            font-size: 13px !important;
         }
         button[kind="formSubmit"] {
-            height: 28px !important;
-            padding: 0 6px !important;
-            font-size: 12px !important;
+            height: 30px !important;
+            padding: 0 8px !important;
+            font-size: 14px !important;
+        }
+        .stForm {
+            padding: 0.5rem;
+            margin-bottom: 1rem;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -144,61 +127,36 @@ def get_total_scores():
 
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
-sorted_scores = sorted(set(totals.values()))
-min_score = sorted_scores[0] if sorted_scores else None
-second_high = sorted_scores[-2] if len(sorted_scores) > 1 else None
-max_score = sorted_scores[-1] if sorted_scores else None
-
-labelled = {}
-for player, score in totals.items():
-    label = player
-    if score == min_score:
-        label += " 🏆 TUG"
-    elif score == max_score:
-        label += " 🥇"
-    elif score == second_high:
-        label += " 🥈"
-    labelled[player] = label
-
-score_df = pd.DataFrame([[totals[p] for p in totals]], columns=[labelled[p] for p in totals])
+score_df = pd.DataFrame([[totals[p] for p in st.session_state.players]], columns=st.session_state.players)
 st.dataframe(score_df.style, use_container_width=True)
 
-# ----------------- PREVIOUS ROUNDS (Editable Clean Table) -----------------
+# ----------------- PREVIOUS ROUNDS (Grid Edit) -----------------
 st.markdown("---")
-st.subheader("📜 Previous Rounds (Editable)")
+st.subheader("📜 Previous Rounds (Editable Table)")
 
 if st.session_state.scores:
-    players = st.session_state.players
+    df_rounds = pd.DataFrame(st.session_state.scores)
+    df_rounds.index = [f"{i+1}" for i in range(len(df_rounds))]
+    df_rounds.insert(0, "Round No", df_rounds.index)
 
-    # Header row
-    header_cols = st.columns(len(players) + 2)
-    header_cols[0].markdown("**Round**")
-    for j, player in enumerate(players):
-        header_cols[j + 1].markdown(f"**{player}**")
-    header_cols[-1].markdown("")
+    st.markdown("Edit scores below and press **Update Table** to save:")
 
-    for i, round_scores in enumerate(st.session_state.scores):
-        with st.form(f"round_edit_form_{i}", clear_on_submit=False):
-            cols = st.columns(len(players) + 2)
-            cols[0].markdown(f"Round {i+1}")
-            round_updated = {}
-            for j, player in enumerate(players):
-                val = round_scores.get(player, 0)
-                round_updated[player] = cols[j + 1].text_input(
-                    "", value=str(val), key=f"r{i}_{player}",
-                    label_visibility="collapsed", placeholder="0"
-                )
-            update_button = cols[-1].form_submit_button("🔄")
-            if update_button and is_admin:
-                try:
-                    for k in round_updated:
-                        round_updated[k] = int(round_updated[k])
-                    st.session_state.scores[i] = round_updated
-                    save_game()
-                    st.success(f"✅ Round {i+1} updated.")
-                    st.rerun()
-                except ValueError:
-                    st.warning("All scores must be valid numbers.")
+    edited_df = st.data_editor(df_rounds, use_container_width=True, hide_index=True, num_rows="fixed")
+
+    if st.button("✅ Update Table"):
+        try:
+            # Convert edited values back to int
+            updated_scores = []
+            for _, row in edited_df.iterrows():
+                row_data = {player: int(row[player]) for player in st.session_state.players}
+                updated_scores.append(row_data)
+            st.session_state.scores = updated_scores
+            save_game()
+            st.success("✅ Scores updated successfully!")
+            st.rerun()
+        except:
+            st.error("❌ Please enter valid numbers only.")
+
 else:
     st.info("No rounds yet.")
 
