@@ -21,6 +21,9 @@ st.markdown("""
         }
         .stForm {
             padding: 0.25rem 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 6px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -162,46 +165,36 @@ for col in score_df.columns:
 
 st.dataframe(styled_df, use_container_width=True)
 
-# ----------------- PREVIOUS ROUNDS (Editable Compact Grid) -----------------
+# ----------------- PREVIOUS ROUNDS (Editable, Compact) -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
-
 if st.session_state.scores:
-    if is_admin:
-        with st.form("edit_rounds_form"):
-            edited_scores = []
-            st.markdown("#### 📝 Edit Round Scores")
-            for i, round_score in enumerate(st.session_state.scores):
-                st.markdown(f"**Round {i+1}**")
-                cols = st.columns(len(st.session_state.players))
-                updated = {}
-                for j, player in enumerate(st.session_state.players):
-                    key = f"edit_r{i}_{player}"
-                    updated[player] = cols[j].number_input(
-                        label=player,
-                        value=round_score.get(player, 0),
-                        min_value=0,
-                        step=1,
-                        key=key,
-                        label_visibility="collapsed"
-                    )
-                edited_scores.append(updated)
-            if st.form_submit_button("💾 Update All Rounds"):
-                st.session_state.scores = edited_scores
-                save_game()
-                st.success("All rounds updated!")
-                st.rerun()
-    else:
-        df_rounds = pd.DataFrame(st.session_state.scores)
-        df_rounds.index = [f"Round {i+1}" for i in range(len(df_rounds))]
-        st.dataframe(df_rounds.style.format(precision=0), use_container_width=True)
+    players = st.session_state.players
+    for i, round_scores in enumerate(st.session_state.scores):
+        with st.form(f"round_edit_form_{i}", clear_on_submit=False):
+            st.markdown(f"<b>Round {i+1}</b>", unsafe_allow_html=True)
+            cols = st.columns(len(players))
+            round_updated = {}
+            for j, player in enumerate(players):
+                key = f"edit_r{i}_{player}"
+                val = round_scores.get(player, 0)
+                round_updated[player] = cols[j].number_input(
+                    f"{player}", min_value=0, value=val, step=1,
+                    key=key, label_visibility="collapsed",
+                    disabled=not is_admin
+                )
+            if is_admin:
+                if st.form_submit_button("🔄"):
+                    st.session_state.scores[i] = round_updated
+                    save_game()
+                    st.success(f"Updated Round {i+1}")
+                    st.rerun()
 else:
     st.info("No rounds yet.")
 
 # ----------------- ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
 st.subheader("✍️ Enter New Round Scores")
-
 if 'reset_inputs' not in st.session_state:
     st.session_state.reset_inputs = False
 
@@ -225,7 +218,6 @@ st.session_state.reset_inputs = False
 # ----------------- ADD / REMOVE PLAYER -----------------
 st.markdown("---")
 st.subheader("⚙️ Add / Remove Player")
-
 if is_admin:
     remove_player = st.selectbox("❌ Remove Player", options=st.session_state.players)
     if st.button("❌ Confirm Remove"):
