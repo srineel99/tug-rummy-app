@@ -97,22 +97,36 @@ if 'player_setup_done' not in st.session_state:
     st.session_state.player_setup_done = False
     load_game()
 
+# ----------------- Player Setup (New Style) -----------------
 if not st.session_state.player_setup_done:
     if is_admin:
         st.subheader("👥 Setup Players")
+        if 'player_names' not in st.session_state:
+            st.session_state.player_names = ["", "", "", ""]  # Default 4 players
+
         with st.form("player_setup_form"):
-            num_players = st.number_input("Number of Players", min_value=2, max_value=15, value=4)
-            player_names = [st.text_input(f"Player {i+1} Name", key=f"player_{i}") for i in range(int(num_players))]
-            submitted = st.form_submit_button("✅ Start Game")
-        if submitted and all(name.strip() for name in player_names):
-            st.session_state.players = player_names
-            st.session_state.scores = []
-            st.session_state.reset_inputs = True
-            st.session_state.player_setup_done = True
-            save_game()
-            st.rerun()
-        elif submitted:
-            st.warning("Please enter all player names.")
+            for i, name in enumerate(st.session_state.player_names):
+                st.session_state.player_names[i] = st.text_input(f"Player {i+1} Name", value=name, key=f"player_{i}")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if len(st.session_state.player_names) < 15:
+                    if st.form_submit_button("➕ Add Player"):
+                        st.session_state.player_names.append("")
+                        st.rerun()
+
+            with col2:
+                if st.form_submit_button("✅ Start Game"):
+                    cleaned = [name.strip() for name in st.session_state.player_names if name.strip()]
+                    if len(cleaned) >= 2:
+                        st.session_state.players = cleaned
+                        st.session_state.scores = []
+                        st.session_state.reset_inputs = True
+                        st.session_state.player_setup_done = True
+                        save_game()
+                        st.rerun()
+                    else:
+                        st.warning("Please enter at least 2 player names.")
     else:
         st.info("Waiting for admin to start the game.")
     st.stop()
@@ -129,13 +143,11 @@ def get_total_scores():
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
 
-# Sort for min, max, second-highest
 sorted_unique = sorted(set(totals.values()))
 min_score = sorted_unique[0] if sorted_unique else None
 second_high = sorted_unique[-2] if len(sorted_unique) > 1 else None
 max_score = sorted_unique[-1] if sorted_unique else None
 
-# Labels
 unique_labels = []
 label_map = {}
 name_counts = {}
