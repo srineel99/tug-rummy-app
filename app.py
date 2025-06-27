@@ -145,10 +145,15 @@ if st.session_state.scores:
 
     if st.button("✅ Update Table"):
         try:
-            # Convert edited values back to int
             updated_scores = []
             for _, row in edited_df.iterrows():
-                row_data = {player: int(row[player]) for player in st.session_state.players}
+                row_data = {}
+                for player in st.session_state.players:
+                    value = row.get(player, "")
+                    if isinstance(value, (int, float, str)) and str(value).strip().isdigit():
+                        row_data[player] = int(value)
+                    else:
+                        raise ValueError("Invalid score")
                 updated_scores.append(row_data)
             st.session_state.scores = updated_scores
             save_game()
@@ -156,7 +161,6 @@ if st.session_state.scores:
             st.rerun()
         except:
             st.error("❌ Please enter valid numbers only.")
-
 else:
     st.info("No rounds yet.")
 
