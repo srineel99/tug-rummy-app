@@ -5,7 +5,7 @@ import json
 
 st.set_page_config(page_title="TUG Rummy", layout="centered")
 
-# Minimal styling
+# Compact UI styling for mobile
 st.markdown("""
     <style>
         .stDataFrame div {
@@ -128,7 +128,7 @@ def get_total_scores():
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
 
-# Unique column names (handle duplicates safely)
+# Avoid duplicate column names
 unique_names = []
 name_counts = {}
 for name in st.session_state.players:
@@ -187,10 +187,15 @@ if 'reset_inputs' not in st.session_state:
 if is_admin:
     with st.form("new_round_form"):
         new_scores = {}
+        key_counts = {}
         for player in st.session_state.players:
-            key = f"new_round_{player}"
-            default = 0 if st.session_state.reset_inputs else st.session_state.get(key, 0)
-            new_scores[player] = st.number_input(f"{player}", min_value=0, value=default, step=1, key=key)
+            count = key_counts.get(player, 0)
+            safe_key = f"new_round_{player}_{count}"
+            key_counts[player] = count + 1
+
+            default = 0 if st.session_state.reset_inputs else st.session_state.get(safe_key, 0)
+            new_scores[player] = st.number_input(f"{player}", min_value=0, value=default, step=1, key=safe_key)
+
         if st.form_submit_button("📅 Save This Round"):
             st.session_state.scores.append(new_scores.copy())
             st.session_state.reset_inputs = True
