@@ -165,23 +165,35 @@ for col in score_df.columns:
 
 st.dataframe(styled_df, use_container_width=True)
 
-# ----------------- PREVIOUS ROUNDS (Editable Compact Clean Row) -----------------
+# ----------------- PREVIOUS ROUNDS (Editable Compact Clean Table) -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
 
 if st.session_state.scores:
     players = st.session_state.players
+
+    # Header Row with Player Names
+    header_cols = st.columns(len(players) + 1)
+    header_cols[0].markdown("<b style='font-size:13px;'>Round</b>", unsafe_allow_html=True)
+    for j, player in enumerate(players):
+        header_cols[j + 1].markdown(f"<b style='font-size:13px;'>{player}</b>", unsafe_allow_html=True)
+
+    # Score Rows (one per round)
     for i, round_scores in enumerate(st.session_state.scores):
         with st.form(f"round_edit_form_{i}", clear_on_submit=False):
-            st.markdown(f"**Round {i+1}**")
             cols = st.columns(len(players) + 1)
+            cols[0].markdown(f"<span style='font-size:12px;'>Round {i+1}</span>", unsafe_allow_html=True)
+
             round_updated = {}
             for j, player in enumerate(players):
                 val = round_scores.get(player, 0)
-                round_updated[player] = cols[j].text_input(
-                    "", value=str(val), key=f"r{i}_{player}",
-                    label_visibility="collapsed"
+                round_updated[player] = cols[j + 1].text_input(
+                    "", value=str(val),
+                    key=f"r{i}_{player}",
+                    label_visibility="collapsed",
+                    placeholder="0"
                 )
+
             update_button = cols[-1].form_submit_button("🔄")
             if update_button and is_admin:
                 try:
@@ -195,6 +207,7 @@ if st.session_state.scores:
                     st.warning("All scores must be valid numbers.")
 else:
     st.info("No rounds yet.")
+
 
 # ----------------- ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
