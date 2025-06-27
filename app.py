@@ -165,30 +165,34 @@ for col in score_df.columns:
 
 st.dataframe(styled_df, use_container_width=True)
 
-# ----------------- PREVIOUS ROUNDS (Editable, Compact) -----------------
+# ----------------- PREVIOUS ROUNDS (Editable Compact Clean Row) -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
+
 if st.session_state.scores:
     players = st.session_state.players
     for i, round_scores in enumerate(st.session_state.scores):
         with st.form(f"round_edit_form_{i}", clear_on_submit=False):
-            st.markdown(f"<b>Round {i+1}</b>", unsafe_allow_html=True)
-            cols = st.columns(len(players))
+            st.markdown(f"**Round {i+1}**")
+            cols = st.columns(len(players) + 1)
             round_updated = {}
             for j, player in enumerate(players):
-                key = f"edit_r{i}_{player}"
                 val = round_scores.get(player, 0)
-                round_updated[player] = cols[j].number_input(
-                    f"{player}", min_value=0, value=val, step=1,
-                    key=key, label_visibility="collapsed",
-                    disabled=not is_admin
+                round_updated[player] = cols[j].text_input(
+                    "", value=str(val), key=f"r{i}_{player}",
+                    label_visibility="collapsed"
                 )
-            if is_admin:
-                if st.form_submit_button("🔄"):
+            update_button = cols[-1].form_submit_button("🔄")
+            if update_button and is_admin:
+                try:
+                    for k in round_updated:
+                        round_updated[k] = int(round_updated[k])
                     st.session_state.scores[i] = round_updated
                     save_game()
-                    st.success(f"Updated Round {i+1}")
+                    st.success(f"✅ Round {i+1} updated.")
                     st.rerun()
+                except ValueError:
+                    st.warning("All scores must be valid numbers.")
 else:
     st.info("No rounds yet.")
 
