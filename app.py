@@ -175,7 +175,7 @@ except Exception as e:
     st.error("⚠️ Could not apply styling. Showing plain scores.")
     st.dataframe(score_df, use_container_width=True)
 
-# ----------------- PREVIOUS ROUNDS TABLE (Editable) -----------------
+# ----------------- PREVIOUS ROUNDS TABLE -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable Table)")
 
