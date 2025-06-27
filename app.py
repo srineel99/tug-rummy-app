@@ -30,6 +30,7 @@ st.markdown("""
             font-size: 12px !important;
             height: 28px !important;
             padding: 2px !important;
+            text-align: center;
         }
         button[kind="formSubmit"] {
             height: 28px !important;
@@ -160,51 +161,33 @@ for player, score in totals.items():
     labelled[player] = label
 
 score_df = pd.DataFrame([[totals[p] for p in totals]], columns=[labelled[p] for p in totals])
+st.dataframe(score_df.style, use_container_width=True)
 
-def highlight(val):
-    if val == min_score:
-        return 'background-color: lightgreen; font-weight: bold'
-    elif val == second_high:
-        return 'background-color: orange; font-weight: bold'
-    elif val == max_score:
-        return 'background-color: red; color: white; font-weight: bold'
-    return ''
-
-styled_df = score_df.style
-for col in score_df.columns:
-    styled_df = styled_df.applymap(highlight, subset=[col])
-
-st.dataframe(styled_df, use_container_width=True)
-
-# ----------------- PREVIOUS ROUNDS (Editable Compact Clean Table) -----------------
+# ----------------- PREVIOUS ROUNDS (Editable Clean Table) -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable)")
 
 if st.session_state.scores:
     players = st.session_state.players
 
-    # Header Row with Player Names
-    header_cols = st.columns(len(players) + 1)
-    header_cols[0].markdown("<b style='font-size:13px;'>Round</b>", unsafe_allow_html=True)
+    # Header row
+    header_cols = st.columns(len(players) + 2)
+    header_cols[0].markdown("**Round**")
     for j, player in enumerate(players):
-        header_cols[j + 1].markdown(f"<b style='font-size:13px;'>{player}</b>", unsafe_allow_html=True)
+        header_cols[j + 1].markdown(f"**{player}**")
+    header_cols[-1].markdown("")
 
-    # Score Rows (one per round)
     for i, round_scores in enumerate(st.session_state.scores):
         with st.form(f"round_edit_form_{i}", clear_on_submit=False):
-            cols = st.columns(len(players) + 1)
-            cols[0].markdown(f"<span style='font-size:12px;'>Round {i+1}</span>", unsafe_allow_html=True)
-
+            cols = st.columns(len(players) + 2)
+            cols[0].markdown(f"Round {i+1}")
             round_updated = {}
             for j, player in enumerate(players):
                 val = round_scores.get(player, 0)
                 round_updated[player] = cols[j + 1].text_input(
-                    "", value=str(val),
-                    key=f"r{i}_{player}",
-                    label_visibility="collapsed",
-                    placeholder="0"
+                    "", value=str(val), key=f"r{i}_{player}",
+                    label_visibility="collapsed", placeholder="0"
                 )
-
             update_button = cols[-1].form_submit_button("🔄")
             if update_button and is_admin:
                 try:
