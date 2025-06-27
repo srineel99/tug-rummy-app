@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import json
 
+# ----------------- CONFIG + CSS -----------------
 st.set_page_config(page_title="TUG Rummy", layout="centered")
 st.markdown("""
     <style>
@@ -24,6 +25,16 @@ st.markdown("""
             border: 1px solid #ddd;
             border-radius: 6px;
             margin-bottom: 6px;
+        }
+        input {
+            font-size: 12px !important;
+            height: 28px !important;
+            padding: 2px !important;
+        }
+        button[kind="formSubmit"] {
+            height: 28px !important;
+            padding: 0 6px !important;
+            font-size: 12px !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -208,10 +219,10 @@ if st.session_state.scores:
 else:
     st.info("No rounds yet.")
 
-
 # ----------------- ENTER NEW ROUND SCORES -----------------
 st.markdown("---")
 st.subheader("✍️ Enter New Round Scores")
+
 if 'reset_inputs' not in st.session_state:
     st.session_state.reset_inputs = False
 
@@ -235,6 +246,7 @@ st.session_state.reset_inputs = False
 # ----------------- ADD / REMOVE PLAYER -----------------
 st.markdown("---")
 st.subheader("⚙️ Add / Remove Player")
+
 if is_admin:
     remove_player = st.selectbox("❌ Remove Player", options=st.session_state.players)
     if st.button("❌ Confirm Remove"):
