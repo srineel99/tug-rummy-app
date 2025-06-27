@@ -5,7 +5,7 @@ import json
 
 st.set_page_config(page_title="TUG Rummy", layout="centered")
 
-# Compact styling
+# Minimal style tweaks for compact UI
 st.markdown("""
     <style>
         .stDataFrame div {
@@ -130,7 +130,7 @@ totals = get_total_scores()
 score_df = pd.DataFrame([[totals[p] for p in st.session_state.players]], columns=st.session_state.players)
 st.dataframe(score_df.style, use_container_width=True)
 
-# ----------------- PREVIOUS ROUNDS (Grid Edit) -----------------
+# ----------------- PREVIOUS ROUNDS TABLE (Editable) -----------------
 st.markdown("---")
 st.subheader("📜 Previous Rounds (Editable Table)")
 
@@ -149,18 +149,18 @@ if st.session_state.scores:
             for _, row in edited_df.iterrows():
                 row_data = {}
                 for player in st.session_state.players:
-                    value = row.get(player, "")
-                    if isinstance(value, (int, float, str)) and str(value).strip().isdigit():
-                        row_data[player] = int(value)
-                    else:
-                        raise ValueError("Invalid score")
+                    value = row.get(player)
+                    try:
+                        row_data[player] = int(float(value))
+                    except:
+                        raise ValueError(f"Invalid score for {player}: {value}")
                 updated_scores.append(row_data)
             st.session_state.scores = updated_scores
             save_game()
             st.success("✅ Scores updated successfully!")
             st.rerun()
-        except:
-            st.error("❌ Please enter valid numbers only.")
+        except Exception as e:
+            st.error(f"❌ Please enter valid numbers only.\n\nError: {e}")
 else:
     st.info("No rounds yet.")
 
