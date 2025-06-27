@@ -20,6 +20,11 @@ st.markdown("""
             padding: 0.5rem;
             margin-bottom: 1rem;
         }
+        .small-button {
+            padding: 0.1rem 0.4rem;
+            font-size: 12px;
+            margin-top: 0.5rem;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -117,7 +122,7 @@ if not st.session_state.authenticated:
 is_admin = st.session_state.authenticated
 is_player = st.session_state.player_name is not None and not is_admin
 
-# ----------------- Player Setup (Admin Only) -----------------
+# ----------------- Player Setup -----------------
 if not st.session_state.player_setup_done:
     if is_admin:
         st.subheader("👥 Setup Players")
@@ -197,64 +202,53 @@ try:
 except Exception:
     st.dataframe(score_df, use_container_width=True)
 
-# ----------------- Admin Only Features -----------------
+# ----------------- Admin Features -----------------
 if is_admin:
     st.markdown("---")
-    st.subheader("📜 Previous Rounds (Editable Table)")
+    st.subheader("📜 Previous Rounds")
     if st.session_state.scores:
-        st.markdown("Edit scores below, or delete individual rounds:")
         for idx, round_scores in enumerate(st.session_state.scores):
-            st.markdown(f"**Round {idx+1}**")
             cols = st.columns(len(st.session_state.players) + 1)
             for i, player in enumerate(st.session_state.players):
-                cols[i].number_input(f"{player}", min_value=0, value=round_scores[player], key=f"edit_{idx}_{player}", step=1)
-            if cols[-1].button("🗑️ Delete", key=f"delete_round_{idx}"):
+                cols[i].number_input(f"Round {idx+1} - {player}", min_value=0, value=round_scores[player], key=f"edit_{idx}_{player}")
+            if cols[-1].button("❌", key=f"delete_round_{idx}"):
                 st.session_state.scores.pop(idx)
                 save_game()
-                st.success(f"Deleted Round {idx+1}")
                 st.rerun()
 
         if st.button("✅ Save All Changes"):
             updated_scores = []
-            try:
-                for idx in range(len(st.session_state.scores)):
-                    row_data = {}
-                    for player in st.session_state.players:
-                        val = st.session_state.get(f"edit_{idx}_{player}", 0)
-                        row_data[player] = int(val)
-                    updated_scores.append(row_data)
-                st.session_state.scores = updated_scores
-                save_game()
-                st.success("✅ Scores updated successfully!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ Error while saving scores: {e}")
+            for idx in range(len(st.session_state.scores)):
+                row_data = {}
+                for player in st.session_state.players:
+                    row_data[player] = int(st.session_state.get(f"edit_{idx}_{player}", 0))
+                updated_scores.append(row_data)
+            st.session_state.scores = updated_scores
+            save_game()
+            st.success("✅ Scores updated successfully!")
+            st.rerun()
+
     else:
         st.info("No rounds yet.")
 
     st.markdown("---")
     st.subheader("✍️ Enter New Round Scores")
-    if 'reset_inputs' not in st.session_state:
-        st.session_state.reset_inputs = False
 
     with st.form("new_round_form"):
         new_scores = {}
         for idx, player in enumerate(st.session_state.players):
-            safe_key = f"new_round_{player}_{idx}"
-            default = 0 if st.session_state.reset_inputs else st.session_state.get(safe_key, 0)
-            new_scores[player] = st.number_input(f"{player}", min_value=0, value=default, step=1, key=safe_key)
+            key = f"new_score_{player}_{idx}"
+            new_scores[player] = st.number_input(f"{player}", min_value=0, step=1, key=key)
 
         submitted = st.form_submit_button("📅 Save This Round")
         if submitted:
             st.session_state.scores.append(new_scores.copy())
-            st.session_state.reset_inputs = True
-            # Clear previous input keys to reset values to 0
-            for key in list(st.session_state.keys()):
-                if key.startswith("new_round_"):
-                    del st.session_state[key]
             save_game()
-            st.rerun()
-    st.session_state.reset_inputs = False
+            # Reset inputs by removing them from session_state
+            for key in list(st.session_state.keys()):
+                if key.startswith("new_score_"):
+                    del st.session_state[key]
+            st.experimental_rerun()
 
     st.markdown("---")
     st.subheader("⚙️ Add / Remove Player")
