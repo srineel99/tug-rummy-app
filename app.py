@@ -149,7 +149,6 @@ for name in st.session_state.players:
     elif score == second_high:
         label += " 🥈"
 
-    # Ensure label uniqueness
     count = name_counts.get(label, 0)
     if count:
         label = f"{label} ({count+1})"
@@ -169,11 +168,12 @@ def highlight(val):
         return 'background-color: red; color: white; font-weight: bold'
     return ''
 
-styled_df = score_df.style
-for col in score_df.columns:
-    styled_df = styled_df.applymap(highlight, subset=[col])
-
-st.dataframe(styled_df, use_container_width=True)
+try:
+    styled_df = score_df.style.applymap(highlight)
+    st.dataframe(styled_df, use_container_width=True)
+except Exception as e:
+    st.error("⚠️ Could not apply styling. Showing plain scores.")
+    st.dataframe(score_df, use_container_width=True)
 
 # ----------------- PREVIOUS ROUNDS TABLE (Editable) -----------------
 st.markdown("---")
