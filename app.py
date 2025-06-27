@@ -5,7 +5,7 @@ import json
 
 st.set_page_config(page_title="TUG Rummy", layout="centered")
 
-# Minimal style tweaks for compact UI
+# Minimal styling
 st.markdown("""
     <style>
         .stDataFrame div {
@@ -127,8 +127,21 @@ def get_total_scores():
 
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
-score_df = pd.DataFrame([[totals[p] for p in st.session_state.players]], columns=st.session_state.players)
-st.dataframe(score_df.style, use_container_width=True)
+
+# Unique column names (handle duplicates safely)
+unique_names = []
+name_counts = {}
+for name in st.session_state.players:
+    count = name_counts.get(name, 0)
+    label = f"{name} ({count+1})" if count else name
+    while label in unique_names:
+        count += 1
+        label = f"{name} ({count+1})"
+    name_counts[name] = count
+    unique_names.append(label)
+
+score_df = pd.DataFrame([[totals[p] for p in st.session_state.players]], columns=unique_names)
+st.dataframe(score_df, use_container_width=True)
 
 # ----------------- PREVIOUS ROUNDS TABLE (Editable) -----------------
 st.markdown("---")
