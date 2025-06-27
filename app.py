@@ -117,22 +117,25 @@ if not st.session_state.player_setup_done:
         st.info("Waiting for admin to start the game.")
     st.stop()
 
-# ----------------- TOTAL SCORES -----------------
+# ----------------- TOTAL SCORES HELPER -----------------
+def get_total_scores():
+    totals = {p: 0 for p in st.session_state.players}
+    for round_scores in st.session_state.scores:
+        for p, score in round_scores.items():
+            totals[p] += score
+    return totals
+
 # ----------------- TOTAL SCORES -----------------
 st.subheader("🏆 Total Scores")
 totals = get_total_scores()
-...
 
-st.subheader("🏆 Total Scores")
-totals = get_total_scores()
-
-# Sort values to find lowest, second highest, and highest
+# Sort for min, max, second-highest
 sorted_unique = sorted(set(totals.values()))
 min_score = sorted_unique[0] if sorted_unique else None
 second_high = sorted_unique[-2] if len(sorted_unique) > 1 else None
 max_score = sorted_unique[-1] if sorted_unique else None
 
-# Ensure unique labels (avoid duplicate column names)
+# Labels
 unique_labels = []
 label_map = {}
 name_counts = {}
@@ -146,7 +149,7 @@ for name in st.session_state.players:
     elif score == second_high:
         label += " 🥈"
 
-    # Avoid duplicate labels
+    # Ensure label uniqueness
     count = name_counts.get(label, 0)
     if count:
         label = f"{label} ({count+1})"
@@ -157,7 +160,6 @@ for name in st.session_state.players:
 
 score_df = pd.DataFrame([[totals[p] for p in st.session_state.players]], columns=unique_labels)
 
-# Styling function
 def highlight(val):
     if val == min_score:
         return 'background-color: lightgreen; font-weight: bold'
@@ -167,12 +169,11 @@ def highlight(val):
         return 'background-color: red; color: white; font-weight: bold'
     return ''
 
-# Apply style and show table
-styled = score_df.style
+styled_df = score_df.style
 for col in score_df.columns:
-    styled = styled.applymap(highlight, subset=[col])
+    styled_df = styled_df.applymap(highlight, subset=[col])
 
-st.dataframe(styled, use_container_width=True)
+st.dataframe(styled_df, use_container_width=True)
 
 # ----------------- PREVIOUS ROUNDS TABLE (Editable) -----------------
 st.markdown("---")
