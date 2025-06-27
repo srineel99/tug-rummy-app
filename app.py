@@ -4,6 +4,27 @@ import os
 import json
 
 st.set_page_config(page_title="TUG Rummy", layout="centered")
+st.markdown("""
+    <style>
+        .stNumberInput, .stTextInput, .stSelectbox, .stButton {
+            padding: 2px !important;
+            margin: 2px !important;
+        }
+        div[data-testid="column"] {
+            padding: 0px 2px !important;
+        }
+        section.main > div {
+            padding-top: 0.5rem;
+        }
+        h1, h2, h3, h4, h5 {
+            margin: 0.5rem 0 !important;
+        }
+        .stForm {
+            padding: 0.25rem 0.5rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 st.markdown("<h1 style='color:#aa0000;'>🃏 <b>TUG Rummy Team</b></h1>", unsafe_allow_html=True)
 
 SAVE_FILE = "rummy_game_state.json"
