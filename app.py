@@ -173,16 +173,10 @@ for name in st.session_state.players:
     label = name
     if score == min_score:
         label += " 🏆TUG"
-    elif score == max_score:
-        label += ""
-    elif score == second_high:
-        label += ""
-
     count = name_counts.get(label, 0)
     if count:
         label = f"{label} ({count+1})"
     name_counts[label] = count + 1
-
     label_map[name] = label
     unique_labels.append(label)
 
@@ -208,29 +202,33 @@ if is_admin:
     st.markdown("---")
     st.subheader("📜 Previous Rounds (Editable Table)")
     if st.session_state.scores:
-        df_rounds = pd.DataFrame(st.session_state.scores)
-        df_rounds.index = [f"{i+1}" for i in range(len(df_rounds))]
-        df_rounds.insert(0, "Round No", df_rounds.index)
-        st.markdown("Edit scores below and press **Update Table** to save:")
-        edited_df = st.data_editor(df_rounds, use_container_width=True, hide_index=True, num_rows="fixed")
-        if st.button("✅ Update Table"):
+        st.markdown("Edit scores below, or delete individual rounds:")
+        for idx, round_scores in enumerate(st.session_state.scores):
+            st.markdown(f"**Round {idx+1}**")
+            cols = st.columns(len(st.session_state.players) + 1)
+            for i, player in enumerate(st.session_state.players):
+                cols[i].number_input(f"{player}", min_value=0, value=round_scores[player], key=f"edit_{idx}_{player}", step=1)
+            if cols[-1].button("🗑️ Delete", key=f"delete_round_{idx}"):
+                st.session_state.scores.pop(idx)
+                save_game()
+                st.success(f"Deleted Round {idx+1}")
+                st.rerun()
+
+        if st.button("✅ Save All Changes"):
+            updated_scores = []
             try:
-                updated_scores = []
-                for _, row in edited_df.iterrows():
+                for idx in range(len(st.session_state.scores)):
                     row_data = {}
                     for player in st.session_state.players:
-                        value = row.get(player)
-                        try:
-                            row_data[player] = int(float(value))
-                        except:
-                            raise ValueError(f"Invalid score for {player}: {value}")
+                        val = st.session_state.get(f"edit_{idx}_{player}", 0)
+                        row_data[player] = int(val)
                     updated_scores.append(row_data)
                 st.session_state.scores = updated_scores
                 save_game()
                 st.success("✅ Scores updated successfully!")
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ Invalid entry. Error: {e}")
+                st.error(f"❌ Error while saving scores: {e}")
     else:
         st.info("No rounds yet.")
 
@@ -241,15 +239,19 @@ if is_admin:
 
     with st.form("new_round_form"):
         new_scores = {}
-        key_counts = {}
         for idx, player in enumerate(st.session_state.players):
             safe_key = f"new_round_{player}_{idx}"
             default = 0 if st.session_state.reset_inputs else st.session_state.get(safe_key, 0)
             new_scores[player] = st.number_input(f"{player}", min_value=0, value=default, step=1, key=safe_key)
 
-        if st.form_submit_button("📅 Save This Round"):
+        submitted = st.form_submit_button("📅 Save This Round")
+        if submitted:
             st.session_state.scores.append(new_scores.copy())
             st.session_state.reset_inputs = True
+            # Clear previous input keys to reset values to 0
+            for key in list(st.session_state.keys()):
+                if key.startswith("new_round_"):
+                    del st.session_state[key]
             save_game()
             st.rerun()
     st.session_state.reset_inputs = False
